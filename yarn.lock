@@ -225,12 +225,12 @@
   resolved "https://registry.yarnpkg.com/@octokit/plugin-request-log/-/plugin-request-log-1.0.0.tgz#eef87a431300f6148c39a7f75f8cfeb218b2547e"
   integrity sha512-ywoxP68aOT3zHCLgWZgwUJatiENeHE7xJzYjfz8WI0goynp96wETBF+d95b8g/uL4QmS6owPVlaxiz3wyMAzcw==
 
-"@octokit/plugin-rest-endpoint-methods@3.10.0":
-  version "3.10.0"
-  resolved "https://registry.yarnpkg.com/@octokit/plugin-rest-endpoint-methods/-/plugin-rest-endpoint-methods-3.10.0.tgz#47f780d69192e45f09f71ded76f0b121b40e2d48"
-  integrity sha512-Z2DBsdnkWKuVBVFiLoEUKP/82ylH4Ij5F1Mss106hnQYXTxDfCWAyHW+hJ6ophuHVJ9Flaaue3fYn4CggzkHTg==
+"@octokit/plugin-rest-endpoint-methods@^3.11.1":
+  version "3.11.1"
+  resolved "https://registry.yarnpkg.com/@octokit/plugin-rest-endpoint-methods/-/plugin-rest-endpoint-methods-3.11.1.tgz#47423f9eb894dcda99e2d9aa7d5767ce39508b49"
+  integrity sha512-HaJ2IdMN4wwcNd0YrO1ywbfx9Jw44VuUd2fhePUZo8I0O555OyN6f5hcJVKpotaGvpmFPYYqLk8RRPsHfuM3jw==
   dependencies:
-    "@octokit/types" "^2.14.0"
+    "@octokit/types" "^3.0.2"
     deprecation "^2.3.1"
 
 "@octokit/request-error@^2.0.0":
@@ -257,19 +257,26 @@
     universal-user-agent "^5.0.0"
 
 "@octokit/rest@^17.5.1":
-  version "17.8.0"
-  resolved "https://registry.yarnpkg.com/@octokit/rest/-/rest-17.8.0.tgz#85da66a98d9f5dfadab079dbb15f6031bd7e5460"
-  integrity sha512-m2pdo9+DoEoqQ7wRXV1ihffhE1gbvoC20nvchphluEusbZI6Y9HyXABGiXL+mByy2uUMR2cgBDqBJQQ6bY8Uvg==
+  version "17.9.1"
+  resolved "https://registry.yarnpkg.com/@octokit/rest/-/rest-17.9.1.tgz#ffa31614b2a2330fac82dcff8bb5e88c63fa7cbb"
+  integrity sha512-TCTqCMNs21ToN5rIx15sIETuR19WsAy9wI4GnSVY8yZxeOKzeQs8uvIeijy8Gb6DbcYGXDf+xJ1MNDePPss0DA==
   dependencies:
     "@octokit/core" "^2.4.3"
     "@octokit/plugin-paginate-rest" "^2.2.0"
     "@octokit/plugin-request-log" "^1.0.0"
-    "@octokit/plugin-rest-endpoint-methods" "3.10.0"
+    "@octokit/plugin-rest-endpoint-methods" "^3.11.1"
 
-"@octokit/types@^2.0.0", "@octokit/types@^2.11.1", "@octokit/types@^2.12.1", "@octokit/types@^2.14.0":
-  version "2.15.0"
-  resolved "https://registry.yarnpkg.com/@octokit/types/-/types-2.15.0.tgz#b2070520207727bc6ab3a9caa1e4f60b0434bfa8"
-  integrity sha512-0mnpenB8rLhBVu8VUklp38gWi+EatjvcEcLWcdProMKauSaQWWepOAybZ714sOGsEyhXPlIcHICggn8HUsCXVw==
+"@octokit/types@^2.0.0", "@octokit/types@^2.11.1", "@octokit/types@^2.12.1":
+  version "2.16.2"
+  resolved "https://registry.yarnpkg.com/@octokit/types/-/types-2.16.2.tgz#4c5f8da3c6fecf3da1811aef678fda03edac35d2"
+  integrity sha512-O75k56TYvJ8WpAakWwYRN8Bgu60KrmX0z1KqFp1kNiFNkgW+JW+9EBKZ+S33PU6SLvbihqd+3drvPxKK68Ee8Q==
+  dependencies:
+    "@types/node" ">= 8"
+
+"@octokit/types@^3.0.2":
+  version "3.0.3"
+  resolved "https://registry.yarnpkg.com/@octokit/types/-/types-3.0.3.tgz#c2afcdc633c623e43fda03dc8f58945a45376791"
+  integrity sha512-XEzNlf4ypibiS6KNULOk0ZsN3KjL5Pt8khMhMF/ARxOjtqCv+z1DtO19Pj3KCy0ZWE9v+pF1VuPcNiXoGKLKVA==
   dependencies:
     "@types/node" ">= 8"
 
@@ -368,9 +375,9 @@
   integrity sha512-LXRap3bb4AjtLZ5NOFc4ssVZrQPTgdPcNm++0SEJuJZaOA+xHkojJNYqy33A5q/94BmG5tA6yaMeD4VdCv5aSA==
 
 "@types/node@>= 8":
-  version "13.13.5"
-  resolved "https://registry.yarnpkg.com/@types/node/-/node-13.13.5.tgz#96ec3b0afafd64a4ccea9107b75bf8489f0e5765"
-  integrity sha512-3ySmiBYJPqgjiHA7oEaIo2Rzz0HrOZ7yrNO5HWyaE5q0lQ3BppDZ3N53Miz8bw2I7gh1/zir2MGVZBvpb1zq9g==
+  version "14.0.1"
+  resolved "https://registry.yarnpkg.com/@types/node/-/node-14.0.1.tgz#5d93e0a099cd0acd5ef3d5bde3c086e1f49ff68c"
+  integrity sha512-FAYBGwC+W6F9+huFIDtn43cpy7+SzG+atzRiTfdp3inUKL2hXnd4rG8hylJLIh4+hqrQy1P17kvJByE/z825hA==
 
 "@types/node@^10.11.7":
   version "10.12.21"
@@ -4156,10 +4163,9 @@ growl@1.9.2:
   resolved "https://registry.yarnpkg.com/growl/-/growl-1.9.2.tgz#0ea7743715db8d8de2c5ede1775e1b45ac85c02f"
   integrity sha1-Dqd0NxXbjY3ixe3hd14bRayFwC8=
 
-gulp-atom-electron@^1.23.0:
+gulp-atom-electron@joaomoreno/gulp-atom-electron#7cdf7c18bf92869581d60b0e27f174a06135f53a:
   version "1.23.0"
-  resolved "https://registry.yarnpkg.com/gulp-atom-electron/-/gulp-atom-electron-1.23.0.tgz#ea19f89ef72fe092ec9115b322f62f5c94bbfe00"
-  integrity sha512-c2zDqGKTvBzQNs+jz31ZaB4avFopLnpqe6YJ4YnaqXN7EU0O7SMN6LY0kpNpJDxOLZb0mn22AcER/EbkkIMGTQ==
+  resolved "https://codeload.github.com/joaomoreno/gulp-atom-electron/tar.gz/7cdf7c18bf92869581d60b0e27f174a06135f53a"
   dependencies:
     "@electron/get" "^1.10.0"
     "@octokit/rest" "^17.5.1"
