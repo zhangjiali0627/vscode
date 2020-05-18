@@ -107,7 +107,13 @@ steps:
 - powershell: |
     . build/azure-pipelines/win32/exec.ps1
     $ErrorActionPreference = "Stop"
+    $env:DEBUG="gulp-atom-electron*,@electron/get*"
     exec { yarn electron $(VSCODE_ARCH) }
+  displayName: Download Electron
+
+- powershell: |
+    . build/azure-pipelines/win32/exec.ps1
+    $ErrorActionPreference = "Stop"
     exec { .\scripts\test.bat --build --tfs "Unit Tests" }
   displayName: Run unit tests (Electron)
   condition: and(succeeded(), eq(variables['VSCODE_STEP_ON_IT'], 'false'))
