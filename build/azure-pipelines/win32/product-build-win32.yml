@@ -83,6 +83,14 @@ steps:
 - powershell: |
     . build/azure-pipelines/win32/exec.ps1
     $ErrorActionPreference = "Stop"
+    $env:VSCODE_MIXIN_PASSWORD="$(github-distro-mixin-password)"
+    $env:DEBUG="gulp-atom-electron*,@electron/get*"
+    exec { yarn electron $(VSCODE_ARCH) }
+  displayName: Download Electron
+
+- powershell: |
+    . build/azure-pipelines/win32/exec.ps1
+    $ErrorActionPreference = "Stop"
     exec { yarn postinstall }
   displayName: Run postinstall scripts
   condition: and(succeeded(), eq(variables['CacheRestored'], 'true'))
@@ -103,13 +111,6 @@ steps:
     exec { yarn gulp "vscode-win32-$env:VSCODE_ARCH-code-helper" }
     exec { yarn gulp "vscode-win32-$env:VSCODE_ARCH-inno-updater" }
   displayName: Build
-
-- powershell: |
-    . build/azure-pipelines/win32/exec.ps1
-    $ErrorActionPreference = "Stop"
-    $env:DEBUG="gulp-atom-electron*,@electron/get*"
-    exec { yarn electron $(VSCODE_ARCH) }
-  displayName: Download Electron
 
 - powershell: |
     . build/azure-pipelines/win32/exec.ps1

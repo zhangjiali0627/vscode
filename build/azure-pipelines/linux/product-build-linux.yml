@@ -73,6 +73,12 @@ steps:
 
 - script: |
     set -e
+    VSCODE_MIXIN_PASSWORD="$(github-distro-mixin-password)" \
+      DEBUG=gulp-atom-electron*,@electron/get* yarn electron x64
+  displayName: Download Electron
+
+- script: |
+    set -e
     yarn postinstall
   displayName: Run postinstall scripts
   condition: and(succeeded(), eq(variables['CacheRestored'], 'true'))
@@ -97,11 +103,6 @@ steps:
     service xvfb start
   displayName: Start xvfb
   condition: and(succeeded(), eq(variables['VSCODE_STEP_ON_IT'], 'false'))
-
-- script: |
-    set -e
-    DEBUG=gulp-atom-electron*,@electron/get* yarn electron x64
-  displayName: Download Electron
 
 - script: |
     set -e
