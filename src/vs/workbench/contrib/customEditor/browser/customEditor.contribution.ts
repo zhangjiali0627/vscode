@@ -16,6 +16,9 @@ import { WebviewEditor } from 'vs/workbench/contrib/webview/browser/webviewEdito
 import './commands';
 import { CustomEditorInput } from './customEditorInput';
 import { CustomEditorContribution, CustomEditorService } from './customEditors';
+import { ServicesAccessor } from 'vs/editor/browser/editorExtensions';
+import { IEditorService } from 'vs/workbench/services/editor/common/editorService';
+import { CoreEditingCommands } from 'vs/editor/browser/controller/coreCommands';
 
 registerSingleton(ICustomEditorService, CustomEditorService);
 
@@ -39,3 +42,21 @@ Registry.as<IEditorInputFactoryRegistry>(EditorInputExtensions.EditorInputFactor
 
 Registry.as<IEditorInputFactoryRegistry>(EditorInputExtensions.EditorInputFactories)
 	.registerCustomEditorInputFactory(CustomEditorInputFactory);
+
+function withActiveCustomEditor(accessor: ServicesAccessor, f: (editor: CustomEditorInput) => void): boolean {
+	const editorService = accessor.get(IEditorService);
+	const activeCustomEditor = editorService.activeEditor instanceof CustomEditorInput ? editorService.activeEditor : undefined;
+	if (!activeCustomEditor) {
+		return false;
+	}
+	f(activeCustomEditor);
+	return true;
+}
+
+CoreEditingCommands.Undo.overrides.register(accessor => {
+	return withActiveCustomEditor(accessor, webview => webview.undo());
+});
+
+CoreEditingCommands.Redo.overrides.register(accessor => {
+	return withActiveCustomEditor(accessor, webview => webview.redo());
+});
