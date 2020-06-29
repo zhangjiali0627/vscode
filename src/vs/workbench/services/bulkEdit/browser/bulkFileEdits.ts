@@ -7,13 +7,11 @@
 import { WorkspaceFileEdit, WorkspaceFileEditOptions } from 'vs/editor/common/modes';
 import { IFileService, FileSystemProviderCapabilities } from 'vs/platform/files/common/files';
 import { IProgress } from 'vs/platform/progress/common/progress';
-import { ITextFileService } from 'vs/workbench/services/textfile/common/textfiles';
 import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
 import { IWorkingCopyFileService } from 'vs/workbench/services/workingCopy/common/workingCopyFileService';
-import { IWorkspaceUndoRedoElement, UndoRedoElementType, IResourceUndoRedoElement, IUndoRedoService } from 'vs/platform/undoRedo/common/undoRedo';
+import { IWorkspaceUndoRedoElement, UndoRedoElementType, IUndoRedoService } from 'vs/platform/undoRedo/common/undoRedo';
 import { URI } from 'vs/base/common/uri';
 import { IInstantiationService } from 'vs/platform/instantiation/common/instantiation';
-
 import { ILogService } from 'vs/platform/log/common/log';
 import { VSBuffer } from 'vs/base/common/buffer';
 
@@ -46,7 +44,7 @@ class RenameOperation implements IFileOperation {
 		if (this.options.overwrite === undefined && this.options.ignoreIfExists && await this._fileService.exists(this.newUri)) {
 			return new Noop(); // not overwriting, but ignoring, and the target file exists
 		}
-		await this._workingCopyFileService.move(this.oldUri, this.newUri, this.options.overwrite);
+		await this._workingCopyFileService.move([{ source: this.oldUri, target: this.newUri }], { overwrite: this.options.overwrite });
 		return new RenameOperation(this.oldUri, this.newUri, this.options, this._workingCopyFileService, this._fileService);
 	}
 }
@@ -58,7 +56,7 @@ class CreateOperation implements IFileOperation {
 		readonly options: WorkspaceFileEditOptions,
 		readonly contents: VSBuffer | undefined,
 		@IFileService private readonly _fileService: IFileService,
-		@ITextFileService private readonly _textFileService: ITextFileService,
+		@IWorkingCopyFileService private readonly _workingCopyFileService: IWorkingCopyFileService,
 		@IInstantiationService private readonly _instaService: IInstantiationService,
 	) { }
 
@@ -71,7 +69,7 @@ class CreateOperation implements IFileOperation {
 		if (this.options.overwrite === undefined && this.options.ignoreIfExists && await this._fileService.exists(this.newUri)) {
 			return new Noop(); // not overwriting, but ignoring, and the target file exists
 		}
-		await this._textFileService.create(this.newUri, this.contents, { overwrite: this.options.overwrite });
+		await this._workingCopyFileService.create(this.newUri, this.contents, { overwrite: this.options.overwrite });
 		return this._instaService.createInstance(DeleteOperation, this.newUri, this.options);
 	}
 }
@@ -85,7 +83,7 @@ class DeleteOperation implements IFileOperation {
 		@IFileService private readonly _fileService: IFileService,
 		@IConfigurationService private readonly _configurationService: IConfigurationService,
 		@IInstantiationService private readonly _instaService: IInstantiationService,
-		@ILogService private readonly _logService: ILogService,
+		@ILogService private readonly _logService: ILogService
 	) { }
 
 	get uris() {
@@ -109,7 +107,7 @@ class DeleteOperation implements IFileOperation {
 		}
 
 		const useTrash = this._fileService.hasCapability(this.oldUri, FileSystemProviderCapabilities.Trash) && this._configurationService.getValue<boolean>('files.enableTrash');
-		await this._workingCopyFileService.delete(this.oldUri, { useTrash, recursive: this.options.recursive });
+		await this._workingCopyFileService.delete([this.oldUri], { useTrash, recursive: this.options.recursive });
 		return this._instaService.createInstance(CreateOperation, this.oldUri, this.options, contents);
 	}
 }
@@ -118,14 +116,13 @@ class FileUndoRedoElement implements IWorkspaceUndoRedoElement {
 
 	readonly type = UndoRedoElementType.Workspace;
 
-	readonly resources: readonly URI[] = [];
+	readonly resources: readonly URI[];
 
 	constructor(
 		readonly label: string,
 		readonly operations: IFileOperation[]
 	) {
-		// enable undo/redo here 👇
-		// this.resources = (<URI[]>[]).concat(...operations.map(op => op.uris));
+		this.resources = (<URI[]>[]).concat(...operations.map(op => op.uris));
 	}
 
 	async undo(): Promise<void> {
@@ -142,10 +139,6 @@ class FileUndoRedoElement implements IWorkspaceUndoRedoElement {
 			const undo = await op.perform();
 			this.operations[i] = undo;
 		}
-	}
-
-	split(): IResourceUndoRedoElement[] {
-		return [];
 	}
 }
 

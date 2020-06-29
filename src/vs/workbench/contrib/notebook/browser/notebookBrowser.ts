@@ -136,11 +136,11 @@ export interface INotebookEditorContribution {
 	/**
 	 * Store view state.
 	 */
-	saveViewState?(): any;
+	saveViewState?(): unknown;
 	/**
 	 * Restore view state.
 	 */
-	restoreViewState?(state: any): void;
+	restoreViewState?(state: unknown): void;
 }
 
 export interface INotebookEditor extends IEditor {
@@ -210,17 +210,17 @@ export interface INotebookEditor extends IEditor {
 	/**
 	 * Move a cell up one spot
 	 */
-	moveCellUp(cell: ICellViewModel): Promise<boolean>;
+	moveCellUp(cell: ICellViewModel): Promise<ICellViewModel | null>;
 
 	/**
 	 * Move a cell down one spot
 	 */
-	moveCellDown(cell: ICellViewModel): Promise<boolean>;
+	moveCellDown(cell: ICellViewModel): Promise<ICellViewModel | null>;
 
 	/**
 	 * Move a cell above or below another cell
 	 */
-	moveCell(cell: ICellViewModel, relativeToCell: ICellViewModel, direction: 'above' | 'below'): Promise<boolean>;
+	moveCell(cell: ICellViewModel, relativeToCell: ICellViewModel, direction: 'above' | 'below'): Promise<ICellViewModel | null>;
 
 	/**
 	 * Focus the container of a cell (the monaco editor inside is not focused).
@@ -348,7 +348,7 @@ export interface INotebookEditor extends IEditor {
 	 * Change the decorations on cells.
 	 * The notebook is virtualized and this method should be called to create/delete editor decorations safely.
 	 */
-	changeDecorations(callback: (changeAccessor: IModelDecorationsChangeAccessor) => any): any;
+	changeDecorations<T>(callback: (changeAccessor: IModelDecorationsChangeAccessor) => T): T | null;
 
 	/**
 	 * An event emitted on a "mouseup".
@@ -371,6 +371,7 @@ export interface INotebookEditor extends IEditor {
 }
 
 export interface INotebookCellList {
+	isDisposed: boolean
 	readonly contextKeyService: IContextKeyService;
 	elementAt(position: number): ICellViewModel | undefined;
 	elementHeight(element: ICellViewModel): number;
@@ -434,7 +435,7 @@ export interface BaseCellRenderTemplate {
 	currentRenderedCell?: ICellViewModel;
 	statusBarContainer: HTMLElement;
 	languageStatusBarItem: CellLanguageStatusBarItem;
-	toJSON: () => any;
+	toJSON: () => object;
 }
 
 export interface MarkdownCellRenderTemplate extends BaseCellRenderTemplate {
@@ -577,7 +578,7 @@ export function getVisibleCells(cells: CellViewModel[], hiddenRanges: ICellRange
 
 	let start = 0;
 	let hiddenRangeIndex = 0;
-	let result: any[] = [];
+	let result: CellViewModel[] = [];
 
 	while (start < cells.length && hiddenRangeIndex < hiddenRanges.length) {
 		if (start < hiddenRanges[hiddenRangeIndex].start) {

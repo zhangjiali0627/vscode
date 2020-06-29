@@ -1,7 +1,7 @@
 {
   "name": "code-oss-dev",
   "version": "1.47.0",
-  "distro": "1103b7245defa373835ccc26e0825faf86f7ae5d",
+  "distro": "6e86a3af2a2139fecb3072f144196d4292bfa788",
   "author": {
     "name": "Microsoft Corporation"
   },
@@ -33,6 +33,8 @@
     "strict-function-types-watch": "tsc --watch -p src/tsconfig.json --noEmit --strictFunctionTypes",
     "update-distro": "node build/npm/update-distro.js",
     "web": "node resources/serverless/code-web.js",
+    "compile-web": "gulp compile-web --max_old_space_size=4095",
+    "watch-web": "gulp watch-web --max_old_space_size=4095",
     "eslint": "eslint -c .eslintrc.json --rulesdir ./build/lib/eslint --ext .ts --ext .js ./src/vs ./extensions"
   },
   "dependencies": {
@@ -41,7 +43,7 @@
     "graceful-fs": "4.2.3",
     "http-proxy-agent": "^2.1.0",
     "https-proxy-agent": "^2.2.3",
-    "iconv-lite-umd": "0.6.3",
+    "iconv-lite-umd": "0.6.5",
     "jschardet": "2.1.1",
     "keytar": "^5.5.0",
     "minimist": "^1.2.5",
@@ -58,7 +60,7 @@
     "vscode-proxy-agent": "^0.5.2",
     "vscode-ripgrep": "^1.5.8",
     "vscode-sqlite3": "4.0.10",
-    "vscode-textmate": "5.1.1",
+    "vscode-textmate": "5.1.2",
     "xterm": "4.7.0-beta.3",
     "xterm-addon-search": "0.7.0",
     "xterm-addon-unicode11": "0.2.0",
@@ -160,9 +162,9 @@
     "vsce": "1.48.0",
     "vscode-debugprotocol": "1.41.0",
     "vscode-nls-dev": "^3.3.1",
-    "webpack": "^4.16.5",
-    "webpack-cli": "^3.3.8",
-    "webpack-stream": "^5.1.1",
+    "webpack": "^4.43.0",
+    "webpack-cli": "^3.3.12",
+    "webpack-stream": "^5.2.1",
     "yaserver": "^0.2.0"
   },
   "repository": {

@@ -179,11 +179,7 @@ export class ElectronMainService implements IElectronMainService {
 
 		const window = this.windowById(windowId);
 		if (window) {
-			if (isMacintosh) {
-				window.win.show();
-			} else {
-				window.win.focus();
-			}
+			window.focus();
 		}
 	}
 
@@ -461,6 +457,13 @@ export class ElectronMainService implements IElectronMainService {
 		this.logService.trace('ElectronMainService#crashReporter', JSON.stringify(options));
 
 		crashReporter.start(options);
+	}
+
+	async sendInputEvent(windowId: number | undefined, event: { type: 'mouseDown' | 'mouseUp'; x: number; y: number; clickCount: number; }): Promise<void> {
+		const window = this.windowById(windowId);
+		if (window && (event.type === 'mouseDown' || event.type === 'mouseUp')) {
+			window.win.webContents.sendInputEvent(event);
+		}
 	}
 
 	//#endregion

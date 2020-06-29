@@ -5,8 +5,6 @@
 
 'use strict';
 import {
-	authentication,
-	AuthenticationSession2,
 	CancellationToken,
 	Disposable,
 	Event,
@@ -20,7 +18,6 @@ import {
 	FileSystemProvider,
 	FileType,
 	Progress,
-	Range,
 	TextSearchComplete,
 	TextSearchOptions,
 	TextSearchProvider,
@@ -29,11 +26,11 @@ import {
 	Uri,
 	workspace,
 } from 'vscode';
-import { Octokit } from '@octokit/rest';
-import { graphql } from '@octokit/graphql/';
 import * as fuzzySort from 'fuzzysort';
 import fetch from 'node-fetch';
-import { Iterables } from './iterables';
+import { GitHubApi } from './api';
+import { Iterables } from '../iterables';
+import { getRootUri } from '../extension';
 
 const emptyDisposable = { dispose: () => { /* noop */ } };
 const replaceBackslashRegex = /(\/|\\)/g;
@@ -53,16 +50,17 @@ export class GitHubFS implements FileSystemProvider, FileSearchProvider, TextSea
 	}
 
 	private readonly disposable: Disposable;
-	private fsCache = new Map<string, any>();
+	private fsCache = new Map<string, Map<string, any>>();
 
-	constructor() {
+	constructor(private readonly github: GitHubApi) {
 		this.disposable = Disposable.from(
 			workspace.registerFileSystemProvider(GitHubFS.scheme, this, {
 				isCaseSensitive: true,
-				isReadonly: true,
+				isReadonly: true
 			}),
 			workspace.registerFileSearchProvider(GitHubFS.scheme, this),
 			workspace.registerTextSearchProvider(GitHubFS.scheme, this),
+			github.onDidChangeContext(e => this.fsCache.delete(e.toString()))
 		);
 	}
 
@@ -70,22 +68,18 @@ export class GitHubFS implements FileSystemProvider, FileSearchProvider, TextSea
 		this.disposable?.dispose();
 	}
 
-	private _github: Promise<GitHubApi | undefined> | undefined;
-	get github(): Promise<GitHubApi | undefined> {
-		if (this._github === undefined) {
-			this._github = this.getGitHubApi();
+	private getCache(uri: Uri) {
+		const rootUri = getRootUri(uri);
+		if (rootUri === undefined) {
+			return undefined;
 		}
-		return this._github;
-	}
 
-	private async getGitHubApi(): Promise<GitHubApi | undefined> {
-		try {
-			const session = await authentication.getSession('github', ['repo'], { createIfNone: true });
-			return new GitHubApi(session);
-		} catch (ex) {
-			this._github = undefined;
-			throw ex;
+		let cache = this.fsCache.get(rootUri.toString());
+		if (cache === undefined) {
+			cache = new Map<string, any>();
+			this.fsCache.set(rootUri.toString(), cache);
 		}
+		return cache;
 	}
 
 	//#region FileSystemProvider
@@ -96,7 +90,8 @@ export class GitHubFS implements FileSystemProvider, FileSearchProvider, TextSea
 
 	async stat(uri: Uri): Promise<FileStat> {
 		if (uri.path === '' || uri.path.lastIndexOf('/') === 0) {
-			return { type: FileType.Directory, size: 0, ctime: 0, mtime: 0 };
+			const context = await this.github.getContext(uri);
+			return { type: FileType.Directory, size: 0, ctime: 0, mtime: context?.timestamp };
 		}
 
 		const data = await this.fsQuery<{
@@ -108,14 +103,20 @@ export class GitHubFS implements FileSystemProvider, FileSearchProvider, TextSea
 			...on Blob {
 				byteSize
 			}`,
-			this.fsCache,
+			this.getCache(uri),
 		);
 
+		if (data === undefined) {
+			throw FileSystemError.FileNotFound();
+		}
+
+		const context = await this.github.getContext(uri);
+
 		return {
-			type: typenameToFileType(data?.__typename),
-			size: data?.byteSize ?? 0,
+			type: typenameToFileType(data.__typename),
+			size: data.byteSize ?? 0,
 			ctime: 0,
-			mtime: 0,
+			mtime: context?.timestamp,
 		};
 	}
 
@@ -130,7 +131,7 @@ export class GitHubFS implements FileSystemProvider, FileSearchProvider, TextSea
 					type
 				}
 			}`,
-			this.fsCache,
+			this.getCache(uri),
 		);
 
 		return (data?.entries ?? []).map<[string, FileType]>(e => [
@@ -139,8 +140,8 @@ export class GitHubFS implements FileSystemProvider, FileSearchProvider, TextSea
 		]);
 	}
 
-	createDirectory(): void | Thenable<void> {
-		throw FileSystemError.NoPermissions;
+	createDirectory(_uri: Uri): void | Thenable<void> {
+		throw FileSystemError.NoPermissions();
 	}
 
 	async readFile(uri: Uri): Promise<Uint8Array> {
@@ -172,20 +173,20 @@ export class GitHubFS implements FileSystemProvider, FileSearchProvider, TextSea
 		return textEncoder.encode(data?.text ?? '');
 	}
 
-	writeFile(): void | Thenable<void> {
-		throw FileSystemError.NoPermissions;
+	async writeFile(_uri: Uri, _content: Uint8Array, _options: { create: boolean, overwrite: boolean }): Promise<void> {
+		throw FileSystemError.NoPermissions();
 	}
 
-	delete(): void | Thenable<void> {
-		throw FileSystemError.NoPermissions;
+	delete(_uri: Uri, _options: { recursive: boolean }): void | Thenable<void> {
+		throw FileSystemError.NoPermissions();
 	}
 
-	rename(): void | Thenable<void> {
-		throw FileSystemError.NoPermissions;
+	rename(_oldUri: Uri, _newUri: Uri, _options: { overwrite: boolean }): void | Thenable<void> {
+		throw FileSystemError.NoPermissions();
 	}
 
-	copy?(): void | Thenable<void> {
-		throw FileSystemError.NoPermissions;
+	copy(_source: Uri, _destination: Uri, _options: { overwrite: boolean }): void | Thenable<void> {
+		throw FileSystemError.NoPermissions();
 	}
 
 	//#endregion
@@ -201,8 +202,10 @@ export class GitHubFS implements FileSystemProvider, FileSearchProvider, TextSea
 	): Promise<Uri[]> {
 		let searchable = this.fileSearchCache.get(options.folder.toString(true));
 		if (searchable === undefined) {
-			const matches = await (await this.github)?.filesQuery(options.folder);
-			if (matches === undefined || token.isCancellationRequested) { return []; }
+			const matches = await this.github.filesQuery(options.folder);
+			if (matches === undefined || token.isCancellationRequested) {
+				return [];
+			}
 
 			searchable = [...Iterables.map(matches, m => (fuzzySort as Fuzzysort).prepareSlow(m))];
 			this.fileSearchCache.set(options.folder.toString(true), searchable);
@@ -233,13 +236,12 @@ export class GitHubFS implements FileSystemProvider, FileSearchProvider, TextSea
 		query: TextSearchQuery,
 		options: TextSearchOptions,
 		progress: Progress<TextSearchResult>,
-		token: CancellationToken,
+		_token: CancellationToken,
 	): Promise<TextSearchComplete> {
-		const results = await (await this.github)?.searchQuery(
+		const results = await this.github.searchQuery(
 			query.pattern,
 			options.folder,
 			{ maxResults: options.maxResults, context: { before: options.beforeContext, after: options.afterContext } },
-			token,
 		);
 		if (results === undefined) { return { limitHit: true }; }
 
@@ -266,9 +268,11 @@ export class GitHubFS implements FileSystemProvider, FileSearchProvider, TextSea
 		const key = `${uri.toString()}:${getHashCode(query)}`;
 
 		let data = cache?.get(key);
-		if (data !== undefined) { return data as T; }
+		if (data !== undefined) {
+			return data as T;
+		}
 
-		data = await (await this.github)?.fsQuery<T>(uri, query);
+		data = await this.github.fsQuery<T>(uri, query);
 		cache?.set(key, data);
 		return data;
 	}
@@ -296,12 +300,16 @@ function typenameToFileType(typename: string | undefined | null) {
 }
 
 type RepoInfo = { owner: string; repo: string; path: string | undefined; ref?: string };
-function fromGitHubUri(uri: Uri): RepoInfo {
+export function fromGitHubUri(uri: Uri): RepoInfo {
 	const [, owner, repo, ...rest] = uri.path.split('/');
 
 	let ref;
 	if (uri.authority) {
 		ref = uri.authority;
+		// The casing of HEAD is important for the GitHub api to work
+		if (/HEAD/i.test(ref)) {
+			ref = 'HEAD';
+		}
 	}
 	return { owner: owner, repo: repo, path: rest.join('/'), ref: ref };
 }
@@ -321,176 +329,4 @@ function getHashCode(s: string): number {
 		hash |= 0; // Convert to 32bit integer
 	}
 	return hash;
-}
-
-interface SearchQueryMatch {
-	path: string;
-	ranges: Range[];
-	preview: string;
-	matches: Range[];
-}
-
-interface SearchQueryResults {
-	matches: SearchQueryMatch[];
-	limitHit: boolean;
-}
-
-class GitHubApi {
-	constructor(private readonly session: AuthenticationSession2) { }
-
-	private _graphql: typeof graphql | undefined;
-	private get graphql() {
-		if (this._graphql === undefined) {
-			this._graphql = graphql.defaults({
-				headers: {
-					Authorization: `Bearer ${this.token}`,
-				}
-			});
-		}
-
-		return this._graphql;
-	}
-
-	get token() {
-		return this.session.accessToken;
-	}
-
-	async filesQuery(uri: Uri) {
-		const { owner, repo, ref } = fromGitHubUri(uri);
-		try {
-			const resp = await new Octokit({
-				auth: `token ${this.token}`,
-			}).git.getTree({
-				owner: owner,
-				repo: repo,
-				recursive: '1',
-				tree_sha: ref ?? 'HEAD',
-			});
-			return Iterables.filterMap(resp.data.tree, p => p.type === 'blob' ? p.path : undefined);
-		} catch (ex) {
-			return [];
-		}
-	}
-
-	async searchQuery(
-		query: string,
-		uri: Uri,
-		options: { maxResults?: number; context?: { before?: number; after?: number } },
-		_token: CancellationToken,
-	): Promise<SearchQueryResults> {
-		const { owner, repo, ref } = fromGitHubUri(uri);
-
-		// If we have a specific ref, don't try to search, because GitHub search only works against the default branch
-		if (ref === undefined) {
-			return { matches: [], limitHit: true };
-		}
-
-		try {
-			const resp = await new Octokit({
-				auth: `token ${this.token}`,
-				request: {
-					headers: {
-						accept: 'application/vnd.github.v3.text-match+json',
-					},
-				}
-			}).search.code({
-				q: `${query} repo:${owner}/${repo}`,
-			});
-
-			// Since GitHub doesn't return ANY line numbers just fake it at the top of the file 😢
-			const range = new Range(0, 0, 0, 0);
-
-			const matches: SearchQueryMatch[] = [];
-
-			console.log(resp.data.items.length, resp.data.items);
-
-			let counter = 0;
-			let match: SearchQueryMatch;
-			for (const item of resp.data.items) {
-				for (const m of (item as typeof item & { text_matches: GitHubSearchTextMatch[] }).text_matches) {
-					counter++;
-					if (options.maxResults !== undefined && counter > options.maxResults) {
-						return { matches: matches, limitHit: true };
-					}
-
-					match = {
-						path: item.path,
-						ranges: [],
-						preview: m.fragment,
-						matches: [],
-					};
-
-					for (const lm of m.matches) {
-						let line = 0;
-						let shartChar = 0;
-						let endChar = 0;
-						for (let i = 0; i < lm.indices[1]; i++) {
-							if (i === lm.indices[0]) {
-								shartChar = endChar;
-							}
-
-							if (m.fragment[i] === '\n') {
-								line++;
-								endChar = 0;
-							} else {
-								endChar++;
-							}
-						}
-
-						match.ranges.push(range);
-						match.matches.push(new Range(line, shartChar, line, endChar));
-					}
-
-					matches.push(match);
-				}
-			}
-
-			return { matches: matches, limitHit: false };
-		} catch (ex) {
-			return { matches: [], limitHit: true };
-		}
-	}
-
-	async fsQuery<T>(uri: Uri, innerQuery: string): Promise<T | undefined> {
-		try {
-			const query = `query fs($owner: String!, $repo: String!, $path: String) {
-	repository(owner: $owner, name: $repo) {
-		object(expression: $path) {
-			${innerQuery}
-		}
-	}
-}`;
-
-			const { owner, repo, path, ref } = fromGitHubUri(uri);
-			const variables = {
-				owner: owner,
-				repo: repo,
-				path: `${ref ?? 'HEAD'}:${path}`,
-			};
-
-			const rsp = await this.query<{
-				repository: { object: T | null | undefined };
-			}>(query, variables);
-			return rsp?.repository?.object ?? undefined;
-		} catch (ex) {
-			return undefined;
-		}
-	}
-
-	query<T>(query: string, variables: { [key: string]: string | number }): Promise<T | undefined> {
-		return this.graphql(query, variables) as Promise<T | undefined>;
-	}
-}
-
-interface GitHubSearchTextMatch {
-	object_url: string;
-	object_type: string;
-	property: string;
-	fragment: string;
-	matches: GitHubSearchMatch[];
-}
-
-interface GitHubSearchMatch {
-	text: string;
-	indices: number[];
 }

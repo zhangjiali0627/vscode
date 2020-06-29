@@ -28,7 +28,6 @@ import { Emitter, Event } from 'vs/base/common/event';
 import { KeyCode } from 'vs/base/common/keyCodes';
 import { Disposable, DisposableStore, dispose } from 'vs/base/common/lifecycle';
 import { isIOS } from 'vs/base/common/platform';
-import { ISpliceable } from 'vs/base/common/sequence';
 import { escapeRegExpCharacters, startsWith } from 'vs/base/common/strings';
 import { isArray, isDefined, isUndefinedOrNull } from 'vs/base/common/types';
 import { localize } from 'vs/nls';
@@ -45,7 +44,7 @@ import { ICssStyleCollector, IColorTheme, IThemeService, registerThemingParticip
 import { getIgnoredSettings } from 'vs/platform/userDataSync/common/settingsMerge';
 import { ITOCEntry } from 'vs/workbench/contrib/preferences/browser/settingsLayout';
 import { ISettingsEditorViewState, settingKeyToDisplayFormat, SettingsTreeElement, SettingsTreeGroupChild, SettingsTreeGroupElement, SettingsTreeNewExtensionsElement, SettingsTreeSettingElement } from 'vs/workbench/contrib/preferences/browser/settingsTreeModels';
-import { ExcludeSettingWidget, ISettingListChangeEvent, IListDataItem, ListSettingWidget, settingsHeaderForeground, settingsNumberInputBackground, settingsNumberInputBorder, settingsNumberInputForeground, settingsSelectBackground, settingsSelectBorder, settingsSelectForeground, settingsSelectListBorder, settingsTextInputBackground, settingsTextInputBorder, settingsTextInputForeground, ObjectSettingWidget, IObjectDataItem, IObjectEnumOption } from 'vs/workbench/contrib/preferences/browser/settingsWidgets';
+import { ExcludeSettingWidget, ISettingListChangeEvent, IListDataItem, ListSettingWidget, settingsHeaderForeground, settingsNumberInputBackground, settingsNumberInputBorder, settingsNumberInputForeground, settingsSelectBackground, settingsSelectBorder, settingsSelectForeground, settingsSelectListBorder, settingsTextInputBackground, settingsTextInputBorder, settingsTextInputForeground, ObjectSettingWidget, IObjectDataItem, IObjectEnumOption, ObjectValue } from 'vs/workbench/contrib/preferences/browser/settingsWidgets';
 import { SETTINGS_EDITOR_COMMAND_SHOW_CONTEXT_MENU } from 'vs/workbench/contrib/preferences/common/preferences';
 import { IWorkbenchEnvironmentService } from 'vs/workbench/services/environment/common/environmentService';
 import { ISetting, ISettingsGroup, SettingValueType } from 'vs/workbench/services/preferences/common/preferences';
@@ -54,6 +53,7 @@ import { getInvalidTypeError } from 'vs/workbench/services/preferences/common/pr
 import { Codicon } from 'vs/base/common/codicons';
 import { CodiconLabel } from 'vs/base/browser/ui/codicons/codiconLabel';
 import { IJSONSchema } from 'vs/base/common/jsonSchema';
+import { IList } from 'vs/base/browser/ui/tree/indexTreeModel';
 
 const $ = DOM.$;
 
@@ -94,6 +94,16 @@ function getEnumOptionsFromSchema(schema: IJSONSchema): IObjectEnumOption[] {
 	});
 }
 
+function getObjectValueType(schema: IJSONSchema): ObjectValue['type'] {
+	if (schema.type === 'boolean') {
+		return 'boolean';
+	} else if (schema.type === 'string' && isDefined(schema.enum) && schema.enum.length > 0) {
+		return 'enum';
+	} else {
+		return 'string';
+	}
+}
+
 function getObjectDisplayValue(element: SettingsTreeSettingElement): IObjectDataItem[] {
 	const data = element.isConfigured ?
 		{ ...element.defaultValue, ...element.scopeValue } :
@@ -129,7 +139,7 @@ function getObjectDisplayValue(element: SettingsTreeSettingElement): IObjectData
 					options: wellDefinedKeyEnumOptions,
 				},
 				value: {
-					type: valueEnumOptions.length > 0 ? 'enum' : 'string',
+					type: getObjectValueType(objectProperties[key]),
 					data: data[key],
 					options: valueEnumOptions,
 				},
@@ -144,7 +154,7 @@ function getObjectDisplayValue(element: SettingsTreeSettingElement): IObjectData
 			return {
 				key: { type: 'string', data: key },
 				value: {
-					type: valueEnumOptions.length > 0 ? 'enum' : 'string',
+					type: getObjectValueType(schema),
 					data: data[key],
 					options: valueEnumOptions,
 				},
@@ -155,7 +165,7 @@ function getObjectDisplayValue(element: SettingsTreeSettingElement): IObjectData
 		return {
 			key: { type: 'string', data: key },
 			value: {
-				type: additionalValueEnums.length > 0 ? 'enum' : 'string',
+				type: typeof objectAdditionalProperties === 'object' ? getObjectValueType(objectAdditionalProperties) : 'string',
 				data: data[key],
 				options: additionalValueEnums,
 			},
@@ -690,6 +700,11 @@ export abstract class AbstractSettingRenderer extends Disposable implements ITre
 				itemElement.setAttribute('role', 'combobox');
 				label += modifiedText;
 			}
+		} else if (templateId === SETTINGS_OBJECT_TEMPLATE_ID) {
+			if (itemElement = (<ISettingObjectItemTemplate>template).objectWidget.domNode) {
+				itemElement.setAttribute('role', 'list');
+				label += modifiedText;
+			}
 		} else {
 			// Don't change attributes if we don't know what we areFunctions
 			return '';
@@ -1024,6 +1039,7 @@ export class SettingObjectRenderer extends AbstractSettingRenderer implements IT
 	protected renderValue(dataElement: SettingsTreeSettingElement, template: ISettingObjectItemTemplate, onChange: (value: string) => void): void {
 		const items = getObjectDisplayValue(dataElement);
 
+
 		template.objectWidget.setValue(items, {
 			showAddButton: (
 				isDefined(dataElement.setting.objectAdditionalProperties) ||
@@ -1031,6 +1047,9 @@ export class SettingObjectRenderer extends AbstractSettingRenderer implements IT
 				!areAllPropertiesDefined(Object.keys(dataElement.setting.objectProperties ?? {}), items)
 			),
 		});
+
+		this.setElementAriaLabels(dataElement, this.templateId, template);
+
 		template.context = dataElement;
 	}
 }
@@ -1849,7 +1868,7 @@ export class SettingsTree extends ObjectTree<SettingsTreeElement> {
 		}));
 	}
 
-	protected createModel(user: string, view: ISpliceable<ITreeNode<SettingsTreeGroupChild>>, options: IObjectTreeOptions<SettingsTreeGroupChild>): ITreeModel<SettingsTreeGroupChild | null, void, SettingsTreeGroupChild | null> {
+	protected createModel(user: string, view: IList<ITreeNode<SettingsTreeGroupChild>>, options: IObjectTreeOptions<SettingsTreeGroupChild>): ITreeModel<SettingsTreeGroupChild | null, void, SettingsTreeGroupChild | null> {
 		return new NonCollapsibleObjectTreeModel<SettingsTreeGroupChild>(user, view, options);
 	}
 }

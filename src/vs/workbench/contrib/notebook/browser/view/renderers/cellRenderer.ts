@@ -268,19 +268,17 @@ abstract class AbstractCellRenderer {
 				this.notebookEditor.focus();
 			}
 
-			if (templateData.focusIndicator) {
-				if (actions.primary.length || actions.secondary.length) {
-					templateData.container.classList.add('cell-has-toolbar-actions');
+			if (actions.primary.length || actions.secondary.length) {
+				templateData.container.classList.add('cell-has-toolbar-actions');
+				if (isCodeCellRenderTemplate(templateData)) {
 					templateData.focusIndicator.style.top = `${EDITOR_TOOLBAR_HEIGHT + EDITOR_TOP_MARGIN}px`;
-					if (isCodeCellRenderTemplate(templateData)) {
-						templateData.focusIndicatorRight.style.top = `${EDITOR_TOOLBAR_HEIGHT + EDITOR_TOP_MARGIN}px`;
-					}
-				} else {
-					templateData.container.classList.remove('cell-has-toolbar-actions');
+					templateData.focusIndicatorRight.style.top = `${EDITOR_TOOLBAR_HEIGHT + EDITOR_TOP_MARGIN}px`;
+				}
+			} else {
+				templateData.container.classList.remove('cell-has-toolbar-actions');
+				if (isCodeCellRenderTemplate(templateData)) {
 					templateData.focusIndicator.style.top = `${EDITOR_TOP_MARGIN}px`;
-					if (isCodeCellRenderTemplate(templateData)) {
-						templateData.focusIndicatorRight.style.top = `${EDITOR_TOP_MARGIN}px`;
-					}
+					templateData.focusIndicatorRight.style.top = `${EDITOR_TOP_MARGIN}px`;
 				}
 			}
 		};
@@ -1124,7 +1122,7 @@ export class TimerRenderer {
 			const duration = Date.now() - startTime;
 			this.container.textContent = this.formatDuration(duration);
 		}, 100);
-		this.intervalTimer = intervalTimer as any;
+		this.intervalTimer = intervalTimer as unknown as number | undefined;
 
 		return toDisposable(() => {
 			clearInterval(intervalTimer);

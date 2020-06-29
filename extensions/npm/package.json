@@ -28,7 +28,7 @@
     "@types/node": "^12.11.7"
   },
   "main": "./out/npmMain",
-  "browser": "./dist/npmBrowserMain",
+  "browser": "./dist/browser/npmBrowserMain",
   "activationEvents": [
     "onCommand:workbench.action.tasks.runTask",
     "onCommand:npm.runScriptFromFolder",
@@ -267,11 +267,11 @@
     "jsonValidation": [
       {
         "fileMatch": "package.json",
-        "url": "https://schemastore.azurewebsites.net/schemas/json/package.json"
+        "url": "https://json.schemastore.org/package"
       },
       {
         "fileMatch": "bower.json",
-        "url": "https://schemastore.azurewebsites.net/schemas/json/bower.json"
+        "url": "https://json.schemastore.org/bower"
       }
     ],
     "taskDefinitions": [
